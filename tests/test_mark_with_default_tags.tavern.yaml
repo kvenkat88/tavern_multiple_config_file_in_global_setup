@@ -1,0 +1,70 @@
+test_name: Marking tests with default tags available in tavern - skip mark option
+
+marks: #always skip a test
+  - skip
+
+stages:
+  - name: Tests with <skip> marks available in tavern and hit /posts/3
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/3"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: 3
+---
+test_name: Marking tests with default tags available in tavern - skipif mark option and condition not satisfied
+
+#Sometimes you just want to skip some tests, perhaps based on which server you’re using
+#skip is not taking environment variables available in global environments
+includes:
+  - !include ../configs/environment.yaml
+
+marks:
+  - skipif: "'https' not in '{server_url}'"
+
+stages:
+  - name: Tests with <skipif> marks available in tavern and hit /posts/2
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/2"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: 2
+
+---
+test_name: Marking tests with default tags available in tavern - skipif mark option and condition satisfied
+
+#skip is not taking environment variables available in global environments
+includes:
+  - !include ../configs/environment.yaml
+
+marks: #Sometimes you just want to skip some tests, perhaps based on which server you’re using
+  - skipif: "'https://jsonplaceholder.typicode.com' in '{server_url}'"
+
+stages:
+  - name: Tests with <skipif> marks available in tavern and hit /posts/1
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/1"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: 1
+
+---
+test_name: Marking tests with default tags available in tavern - xfail mark option
+
+marks: #Sometimes you just want to skip some tests, perhaps based on which server you’re using
+  - xfail
+
+stages:
+  - name: Tests with <xfail> marks available in tavern and hit /posts/1
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/1"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: 2

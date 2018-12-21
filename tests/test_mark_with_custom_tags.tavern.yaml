@@ -1,0 +1,33 @@
+test_name: Marking tests with custom mark tags available in tavern - using sanity mark tag
+
+# Call only the specific tag in command line like pytest -v -m sanity | pytest -v -m all
+
+marks:
+  - sanity
+  - all
+
+stages:
+  - name: Tests with <sanity> marks available in tavern and hit /posts/3
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        {}
+---
+test_name: Marking tests with custom mark tags available in tavern - using regression mark tag
+
+marks:
+  - regression
+  - all
+
+stages:
+  - name: Tests with <regression> marks available in tavern and hit /posts/3
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/3"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: 3
