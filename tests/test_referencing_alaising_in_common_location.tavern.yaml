@@ -1,0 +1,24 @@
+# Implement common referencing/reusing pattern then please refer this example,
+# https://github.com/taverntesting/tavern/tree/master/example/components
+---
+test_name: Invoke the test with referenced stage
+
+includes: #there is bug in tavern and rsised a bug in tavern Github().Unable to put this file in pytest.ini global config setup
+  - !include ../reusable_components/common.yaml
+
+stages:
+  - type: ref
+    id: retrieve_post_info
+
+  - name: GET /posts/<:id> api and verify the response behavior.
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/{fetched_post_resp.id}"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: !int "{fetched_post_resp.id:d}" #type casting of string to int
+        userId: !anything  #Sometimes you want to just make sure that a value is returned, but you don’t know (or care) what it is. This can be achieved by using this
+        title: !anystr #match anystring
+        body: !anystr
+

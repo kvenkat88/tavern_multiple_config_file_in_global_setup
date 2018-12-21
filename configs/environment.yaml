@@ -1,0 +1,7 @@
+name: Common test information for loading the Ask Eva ChatBot Application
+description: URL speciciations, username, model and session details
+
+variables:
+    server_url: https://jsonplaceholder.typicode.com
+    posts_api_endpoint: '/posts'
+

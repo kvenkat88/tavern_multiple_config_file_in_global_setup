@@ -1,0 +1,18 @@
+name: Authentication stage/Launching Stage for API Invoke
+description: Reusable test stage for authentication/API testing start
+
+# Referencing and alaising a yaml fragments /Entire block referencing
+
+stages:
+  - id: retrieve_post_info
+    name: Hit /posts API and return a response with dict and parse a post_id and retrieve single posts
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}"
+      method: GET
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: tavern_multiple_config_file_in_global_setup.test_utilities.helpers:retrieve_user_details_form_of_dict #External function with set of arguments passed and return - {fetched_post_resp : {}}
+          extra_kwargs:
+            index: 1

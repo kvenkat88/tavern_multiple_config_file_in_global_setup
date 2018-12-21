@@ -1,0 +1,98 @@
+test_name: Test type1 of reusing requests or any other parts in yaml fragments
+
+# to set up global config files ,have to mention the config.yaml/common.yaml in pytest.ini file.
+#this would automatically refer and provide the variables to path
+
+stages:
+  - &retrieve_resp_as_dict_by_index  #Referencing and alaising a yaml fragments /Entire block referencing
+
+    name: Hit /posts API and return a response with dict and parse a post_id and retrieve single posts
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}"
+      method: GET
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: tavern_multiple_config_file_in_global_setup.test_utilities.helpers:retrieve_user_details_form_of_dict #External function with set of arguments passed and return - {fetched_post_resp : {}}
+          extra_kwargs:
+            index: 1
+
+  - name: Retrieve the response with above step(Hit /posts API and return a response with dict and parse a post_id and retrieve single posts) and fetch the post by id and validate
+    request: &request_section_reference
+      url: "{server_url:s}{posts_api_endpoint:s}/{fetched_post_resp.id}" #calling the return resp from external function - fetched_post_resp.id
+      method: GET
+    response:
+      status_code: 200
+      strict: False #This level it is not working and universal strict in start of the test is working.Refer test_interact_with_single_post.tavern.yaml test file
+      body:
+        id: !int "{fetched_post_resp.id:d}"
+        userId: !int "{fetched_post_resp.userId:d}"
+        title: !anystr
+        body: !anystr
+---
+test_name: Make sure referencing/alaising works by referencing the above mentioned stage
+
+stages:
+  # Use the same block to fetch the requested info
+  - *retrieve_resp_as_dict_by_index
+
+  - name: Retrieve the single post and validate the response parameters by using the referencing pattern
+    request:
+      #Referencing the request info section
+      <<: *request_section_reference
+      headers:
+        content-type: application/json
+    response:
+      status_code: 200
+      strict: False #This level it is not working and universal strict in start of the test is working.Refer test_interact_with_single_post.tavern.yaml test file
+      body:
+        id: !int "{fetched_post_resp.id:d}"
+        userId: !int "{fetched_post_resp.userId:d}"
+        title: !anystr
+        body: !anystr
+---
+test_name: Verify the functionality of delay_after parameter in tavern
+
+strict: #applicable to all stages ie first -name(stage1,...)
+  - body
+
+stages:
+  - name: Hit /posts API and return a response with dict and parse a post_id and retrieve single posts
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}"
+      method: GET
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: tavern_multiple_config_file_in_global_setup.test_utilities.helpers:retrieve_user_details_form_of_dict #External function with set of arguments passed and return - {fetched_post_resp : {}}
+          extra_kwargs:
+            index: 2
+
+  - name: GET /posts api and verify the behavior.
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/{fetched_post_resp.id}"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: !int "{fetched_post_resp.id:d}" #type casting of string to int
+        userId: !anything  #Sometimes you want to just make sure that a value is returned, but you don’t know (or care) what it is. This can be achieved by using this
+        title: !anystr #match anystring
+        body: !anystr
+    delay_after: 3 #to start withis test stage with delay of 3 seconds
+
+---
+test_name: Verify the test execution after delay_after keyword stage/test invoked
+
+stages:
+  - name: GET /posts api and verify the behavior after the delay_after keyword stage/test executed.
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/2"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: 2
+---

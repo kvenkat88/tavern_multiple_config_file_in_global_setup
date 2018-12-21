@@ -1,0 +1,15 @@
+test_name: Create a test without global config file / that is by using !include option
+
+includes:
+  - !include ../configs/environment.yaml
+
+stages:
+  - name: GET /posts/2 api and verify the response
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/2"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: 2
+
