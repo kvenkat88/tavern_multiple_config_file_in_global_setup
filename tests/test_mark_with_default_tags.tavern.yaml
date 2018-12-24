@@ -1,5 +1,7 @@
 test_name: Marking tests with default tags available in tavern - skip mark option
 
+# Call only the specific tag in command line like pytest -v -m sanity | pytest -v -m all
+
 marks: #always skip a test
   - skip
 

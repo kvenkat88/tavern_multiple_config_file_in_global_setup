@@ -1,0 +1,17 @@
+test_name: Make sure tavern marks with fixtures written in conftest.py by using tavern's usefixtures option
+
+marks:
+  - usefixtures:
+      - time_request
+
+stages:
+  - name: Interact with pytest's fixtures using tavern's usefixtures option available
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/5"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: 5
+
+

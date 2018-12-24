@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <style>body {
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: 12px;
+	min-width: 1200px;
+	color: #999;
+}
+
+h1 {
+	font-size: 24px;
+	color: black;
+}
+
+h2 {
+	font-size: 16px;
+	color: black;
+}
+
+p {
+    color: black;
+}
+
+a {
+	color: #999;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+/******************************
+ * SUMMARY INFORMATION
+ ******************************/
+
+#environment td {
+	padding: 5px;
+	border: 1px solid #E6E6E6;
+}
+
+#environment tr:nth-child(odd) {
+	background-color: #f6f6f6;
+}
+
+/******************************
+ * TEST RESULT COLORS
+ ******************************/
+span.passed, .passed .col-result {
+	color: green;
+}
+span.skipped, span.xfailed, span.rerun, .skipped .col-result, .xfailed .col-result, .rerun .col-result {
+	color: orange;
+}
+span.error, span.failed, span.xpassed, .error .col-result, .failed .col-result, .xpassed .col-result  {
+	color: red;
+}
+
+
+/******************************
+ * RESULTS TABLE
+ *
+ * 1. Table Layout
+ * 2. Extra
+ * 3. Sorting items
+ *
+ ******************************/
+
+/*------------------
+ * 1. Table Layout
+ *------------------*/
+
+#results-table {
+	border: 1px solid #e6e6e6;
+	color: #999;
+	font-size: 12px;
+	width: 100%
+}
+
+#results-table th, #results-table td {
+	padding: 5px;
+	border: 1px solid #E6E6E6;
+	text-align: left
+}
+#results-table th {
+	font-weight: bold
+}
+
+/*------------------
+ * 2. Extra
+ *------------------*/
+
+.log:only-child {
+	height: inherit
+}
+.log {
+	background-color: #e6e6e6;
+	border: 1px solid #e6e6e6;
+	color: black;
+	display: block;
+	font-family: "Courier New", Courier, monospace;
+	height: 230px;
+	overflow-y: scroll;
+	padding: 5px;
+	white-space: pre-wrap
+}
+div.image {
+	border: 1px solid #e6e6e6;
+	float: right;
+	height: 240px;
+	margin-left: 5px;
+	overflow: hidden;
+	width: 320px
+}
+div.image img {
+	width: 320px
+}
+.collapsed {
+	display: none;
+}
+.expander::after {
+	content: " (show details)";
+	color: #BBB;
+	font-style: italic;
+	cursor: pointer;
+}
+.collapser::after {
+	content: " (hide details)";
+	color: #BBB;
+	font-style: italic;
+	cursor: pointer;
+}
+
+/*------------------
+ * 3. Sorting items
+ *------------------*/
+.sortable {
+	cursor: pointer;
+}
+
+.sort-icon {
+	font-size: 0px;
+	float: left;
+	margin-right: 5px;
+	margin-top: 5px;
+	/*triangle*/
+	width: 0;
+	height: 0;
+	border-left: 8px solid transparent;
+	border-right: 8px solid transparent;
+}
+
+.inactive .sort-icon {
+	/*finish triangle*/
+	border-top: 8px solid #E6E6E6;
+}
+
+.asc.active .sort-icon {
+	/*finish triangle*/
+	border-bottom: 8px solid #999;
+}
+
+.desc.active .sort-icon {
+	/*finish triangle*/
+	border-top: 8px solid #999;
+}
+</style></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function find_all(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sort_column(elem) {
+    toggle_sort_states(elem);
+    var colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    var key;
+    if (elem.classList.contains('numeric')) {
+        key = key_num;
+    } else if (elem.classList.contains('result')) {
+        key = key_result;
+    } else {
+        key = key_alpha;
+    }
+    sort_table(elem, key(colIndex));
+}
+
+function show_all_extras() {
+    find_all('.col-result').forEach(show_extras);
+}
+
+function hide_all_extras() {
+    find_all('.col-result').forEach(hide_extras);
+}
+
+function show_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.remove("collapsed");
+    expandcollapse.classList.remove("expander");
+    expandcollapse.classList.add("collapser");
+}
+
+function hide_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.add("collapsed");
+    expandcollapse.classList.remove("collapser");
+    expandcollapse.classList.add("expander");
+}
+
+function show_filters() {
+    var filter_items = document.getElementsByClassName('filter');
+    for (var i = 0; i < filter_items.length; i++)
+        filter_items[i].hidden = false;
+}
+
+function add_collapse() {
+    // Add links for show/hide all
+    var resulttable = find('table#results-table');
+    var showhideall = document.createElement("p");
+    showhideall.innerHTML = '<a href="javascript:show_all_extras()">Show all details</a> / ' +
+                            '<a href="javascript:hide_all_extras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    find_all('.col-result').forEach(function(elem) {
+        var collapsed = get_query_parameter('collapsed') || 'Passed';
+        var extras = elem.parentNode.nextElementSibling;
+        var expandcollapse = document.createElement("span");
+        if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add("collapsed");
+            expandcollapse.classList.add("expander");
+        } else {
+            expandcollapse.classList.add("collapser");
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener("click", function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains("collapsed")) {
+                show_extras(event.currentTarget);
+            } else {
+                hide_extras(event.currentTarget);
+            }
+        });
+    })
+}
+
+function get_query_parameter(name) {
+    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () {
+    reset_sort_headers();
+
+    add_collapse();
+
+    show_filters();
+
+    toggle_sort_states(find('.initial-sort'));
+
+    find_all('.sortable').forEach(function(elem) {
+        elem.addEventListener("click",
+                              function(event) {
+                                  sort_column(elem);
+                              }, false)
+    });
+
+};
+
+function sort_table(clicked, key_func) {
+    var rows = find_all('.results-table-row');
+    var reversed = !clicked.classList.contains('asc');
+    var sorted_rows = sort(rows, key_func, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    var thead = document.getElementById("results-table-head");
+    document.getElementById('results-table').remove();
+    var parent = document.createElement("table");
+    parent.id = "results-table";
+    parent.appendChild(thead);
+    sorted_rows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName("BODY")[0].appendChild(parent);
+}
+
+function sort(items, key_func, reversed) {
+    var sort_array = items.map(function(item, i) {
+        return [key_func(item), i];
+    });
+    var multiplier = reversed ? -1 : 1;
+
+    sort_array.sort(function(a, b) {
+        var key_a = a[0];
+        var key_b = b[0];
+        return multiplier * (key_a >= key_b ? 1 : -1);
+    });
+
+    return sort_array.map(function(item) {
+        var index = item[1];
+        return items[index];
+    });
+}
+
+function key_alpha(col_index) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[col_index].firstChild.data.toLowerCase();
+    };
+}
+
+function key_num(col_index) {
+    return function(elem) {
+        return parseFloat(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function key_result(col_index) {
+    return function(elem) {
+        var strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+                       'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function reset_sort_headers() {
+    find_all('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    find_all('.sortable').forEach(function(elem) {
+        var icon = document.createElement("div");
+        icon.className = "sort-icon";
+        icon.textContent = "vvv";
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove("desc", "active");
+        elem.classList.add("asc", "inactive");
+    });
+}
+
+function toggle_sort_states(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        reset_sort_headers();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function is_all_rows_hidden(value) {
+  return value.hidden == false;
+}
+
+function filter_table(elem) {
+    var outcome_att = "data-test-result";
+    var outcome = elem.getAttribute(outcome_att);
+    class_outcome = outcome + " results-table-row";
+    var outcome_rows = document.getElementsByClassName(class_outcome);
+
+    for(var i = 0; i < outcome_rows.length; i++){
+        outcome_rows[i].hidden = !elem.checked;
+    }
+
+    var rows = find_all('.results-table-row').filter(is_all_rows_hidden);
+    var all_rows_hidden = rows.length == 0 ? true : false;
+    var not_found_message = document.getElementById("not-found-message");
+    not_found_message.hidden = !all_rows_hidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 24-Dec-2018 at 12:18:33 by<a href="https://pypi.python.org/pypi/pytest-html"> pytest-html</a> v1.19.0</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{&apos;py&apos;: &apos;1.7.0&apos;, &apos;pytest&apos;: &apos;4.0.2&apos;, &apos;pluggy&apos;: &apos;0.8.0&apos;}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.16299</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{&apos;tap&apos;: &apos;2.3&apos;, &apos;tavern&apos;: &apos;0.21.1&apos;, &apos;allure-pytest&apos;: &apos;2.5.4&apos;, &apos;report-parameters&apos;: &apos;0.2&apos;, &apos;html&apos;: &apos;1.19.0&apos;, &apos;metadata&apos;: &apos;1.7.0&apos;}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>2.7.15</td></tr></table>
+    <h2>Summary</h2>
+    <p>19 tests ran in 21.54 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">17 passed</span>, <input checked="true" class="filter" data-test-result="skipped" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="skipped">2 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xfailed">1 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable numeric" col="duration">Duration</th>
+          <th>Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">tests/test_using_tavern_timeout.tavern.yaml::Make sure tavern works with timeout option with connection timeout with test case failed</td>
+          <td class="col-duration">1.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">self = &lt;CallInfo when='call' exception: Test 'Interact with pytest's timeout option a...ed = '{'id': 5}' (type = &lt;type 'dict'&gt;), actual = '{}' (type = &lt;type 'dict'&gt;))&gt;<br/>func = &lt;function &lt;lambda&gt; at 0x06A46E30&gt;, when = 'call'<br/>treat_keyboard_interrupt_as_exception = False<br/><br/>    def __init__(self, func, when, treat_keyboard_interrupt_as_exception=False):<br/>        #: context of invocation: one of "setup", "call",<br/>        #: "teardown", "memocollect"<br/>        self.when = when<br/>        self.start = time()<br/>        try:<br/>&gt;           self.result = func()<br/><br/>c:\python27\lib\site-packages\_pytest\runner.py:211: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>&gt;       lambda: ihook(item=item, **kwds),<br/>        when=when,<br/>        treat_keyboard_interrupt_as_exception=item.config.getvalue("usepdb"),<br/>    )<br/><br/>c:\python27\lib\site-packages\_pytest\runner.py:193: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;_HookCaller 'pytest_runtest_call'&gt;, args = ()<br/>kwargs = {'item': &lt;YamlItem 'Make sure tavern works with timeout option with connection timeout with test case failed'&gt;}<br/>notincall = set([])<br/><br/>    def __call__(self, *args, **kwargs):<br/>        if args:<br/>            raise TypeError("hook calling supports only keyword arguments")<br/>        assert not self.is_historic()<br/>        if self.spec and self.spec.argnames:<br/>            notincall = (<br/>                set(self.spec.argnames) - set(["__multicall__"]) - set(kwargs.keys())<br/>            )<br/>            if notincall:<br/>                warnings.warn(<br/>                    "Argument(s) {} which are declared in the hookspec "<br/>                    "can not be found in this hook call".format(tuple(notincall)),<br/>                    stacklevel=2,<br/>                )<br/>&gt;       return self._hookexec(self, self.get_hookimpls(), kwargs)<br/><br/>c:\python27\lib\site-packages\pluggy\hooks.py:284: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;_pytest.config.PytestPluginManager object at 0x05E94AD0&gt;<br/>hook = &lt;_HookCaller 'pytest_runtest_call'&gt;<br/>methods = [&lt;HookImpl plugin_name='runner', plugin=&lt;module '_pytest.runner' from 'c:\python27\lib\site-packages\_pytest\runner.py... at 0x067C58F0&gt;&gt;, &lt;HookImpl plugin_name='logging-plugin', plugin=&lt;_pytest.logging.LoggingPlugin object at 0x067BDB70&gt;&gt;]<br/>kwargs = {'item': &lt;YamlItem 'Make sure tavern works with timeout option with connection timeout with test case failed'&gt;}<br/><br/>    def _hookexec(self, hook, methods, kwargs):<br/>        # called from all hookcaller instances.<br/>        # enable_tracing will set its own wrapping function at self._inner_hookexec<br/>&gt;       return self._inner_hookexec(hook, methods, kwargs)<br/><br/>c:\python27\lib\site-packages\pluggy\manager.py:67: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>hook = &lt;_HookCaller 'pytest_runtest_call'&gt;<br/>methods = [&lt;HookImpl plugin_name='runner', plugin=&lt;module '_pytest.runner' from 'c:\python27\lib\site-packages\_pytest\runner.py... at 0x067C58F0&gt;&gt;, &lt;HookImpl plugin_name='logging-plugin', plugin=&lt;_pytest.logging.LoggingPlugin object at 0x067BDB70&gt;&gt;]<br/>kwargs = {'item': &lt;YamlItem 'Make sure tavern works with timeout option with connection timeout with test case failed'&gt;}<br/><br/>    self._inner_hookexec = lambda hook, methods, kwargs: hook.multicall(<br/>        methods,<br/>        kwargs,<br/>&gt;       firstresult=hook.spec.opts.get("firstresult") if hook.spec else False,<br/>    )<br/><br/>c:\python27\lib\site-packages\pluggy\manager.py:61: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>hook_impls = [&lt;HookImpl plugin_name='runner', plugin=&lt;module '_pytest.runner' from 'c:\python27\lib\site-packages\_pytest\runner.py... at 0x067C58F0&gt;&gt;, &lt;HookImpl plugin_name='logging-plugin', plugin=&lt;_pytest.logging.LoggingPlugin object at 0x067BDB70&gt;&gt;]<br/>caller_kwargs = {'item': &lt;YamlItem 'Make sure tavern works with timeout option with connection timeout with test case failed'&gt;}<br/>firstresult = False<br/><br/>    def _multicall(hook_impls, caller_kwargs, firstresult=False):<br/>        """Execute a call into multiple python functions/methods and return the<br/>        result(s).<br/>    <br/>        ``caller_kwargs`` comes from _HookCaller.__call__().<br/>        """<br/>        __tracebackhide__ = True<br/>        results = []<br/>        excinfo = None<br/>        try:  # run impl and wrapper setup functions in a loop<br/>            teardowns = []<br/>            try:<br/>                for hook_impl in reversed(hook_impls):<br/>                    try:<br/>                        args = [caller_kwargs[argname] for argname in hook_impl.argnames]<br/>                    except KeyError:<br/>                        for argname in hook_impl.argnames:<br/>                            if argname not in caller_kwargs:<br/>                                raise HookCallError(<br/>                                    "hook call must provide argument %r" % (argname,)<br/>                                )<br/>    <br/>                    if hook_impl.hookwrapper:<br/>                        try:<br/>                            gen = hook_impl.function(*args)<br/>                            next(gen)  # first yield<br/>                            teardowns.append(gen)<br/>                        except StopIteration:<br/>                            _raise_wrapfail(gen, "did not yield")<br/>                    else:<br/>                        res = hook_impl.function(*args)<br/>                        if res is not None:<br/>                            results.append(res)<br/>                            if firstresult:  # halt further impl calls<br/>                                break<br/>            except BaseException:<br/>                excinfo = sys.exc_info()<br/>        finally:<br/>            if firstresult:  # first result hooks return a single value<br/>                outcome = _Result(results[0] if results else None, excinfo)<br/>            else:<br/>                outcome = _Result(results, excinfo)<br/>    <br/>            # run all wrapper post-yield blocks<br/>            for gen in reversed(teardowns):<br/>                try:<br/>                    gen.send(outcome)<br/>                    _raise_wrapfail(gen, "has second yield")<br/>                except StopIteration:<br/>                    pass<br/>    <br/>&gt;           return outcome.get_result()<br/><br/>c:\python27\lib\site-packages\pluggy\callers.py:208: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;pluggy.callers._Result object at 0x06DC3F90&gt;<br/><br/>    def get_result(self):<br/>        """Get the result(s) for this hook call.<br/>    <br/>        If the hook was marked as a ``firstresult`` only a single value<br/>        will be returned otherwise a list of results.<br/>        """<br/>        __tracebackhide__ = True<br/>        if self._excinfo is None:<br/>            return self._result<br/>        else:<br/>            ex = self._excinfo<br/>            if _py3:<br/>                raise ex[1].with_traceback(ex[2])<br/>&gt;           _reraise(*ex)  # noqa<br/><br/>c:\python27\lib\site-packages\pluggy\callers.py:81: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>hook_impls = [&lt;HookImpl plugin_name='runner', plugin=&lt;module '_pytest.runner' from 'c:\python27\lib\site-packages\_pytest\runner.py... at 0x067C58F0&gt;&gt;, &lt;HookImpl plugin_name='logging-plugin', plugin=&lt;_pytest.logging.LoggingPlugin object at 0x067BDB70&gt;&gt;]<br/>caller_kwargs = {'item': &lt;YamlItem 'Make sure tavern works with timeout option with connection timeout with test case failed'&gt;}<br/>firstresult = False<br/><br/>    def _multicall(hook_impls, caller_kwargs, firstresult=False):<br/>        """Execute a call into multiple python functions/methods and return the<br/>        result(s).<br/>    <br/>        ``caller_kwargs`` comes from _HookCaller.__call__().<br/>        """<br/>        __tracebackhide__ = True<br/>        results = []<br/>        excinfo = None<br/>        try:  # run impl and wrapper setup functions in a loop<br/>            teardowns = []<br/>            try:<br/>                for hook_impl in reversed(hook_impls):<br/>                    try:<br/>                        args = [caller_kwargs[argname] for argname in hook_impl.argnames]<br/>                    except KeyError:<br/>                        for argname in hook_impl.argnames:<br/>                            if argname not in caller_kwargs:<br/>                                raise HookCallError(<br/>                                    "hook call must provide argument %r" % (argname,)<br/>                                )<br/>    <br/>                    if hook_impl.hookwrapper:<br/>                        try:<br/>                            gen = hook_impl.function(*args)<br/>                            next(gen)  # first yield<br/>                            teardowns.append(gen)<br/>                        except StopIteration:<br/>                            _raise_wrapfail(gen, "did not yield")<br/>                    else:<br/>&gt;                       res = hook_impl.function(*args)<br/><br/>c:\python27\lib\site-packages\pluggy\callers.py:187: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>item = &lt;YamlItem 'Make sure tavern works with timeout option with connection timeout with test case failed'&gt;<br/><br/>    def pytest_runtest_call(item):<br/>        _update_current_test_var(item, "call")<br/>        sys.last_type, sys.last_value, sys.last_traceback = (None, None, None)<br/>        try:<br/>&gt;           item.runtest()<br/><br/>c:\python27\lib\site-packages\_pytest\runner.py:121: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;YamlItem 'Make sure tavern works with timeout option with connection timeout with test case failed'&gt;<br/><br/>    def runtest(self):<br/>        self.global_cfg = self._parse_arguments()<br/>    <br/>        self.global_cfg.setdefault("variables", {})<br/>    <br/>        load_plugins(self.global_cfg)<br/>    <br/>        # INTERNAL<br/>        # NOTE - now that we can 'mark' tests, we could use pytest.mark.xfail<br/>        # instead. This doesn't differentiate between an error in verification<br/>        # and an error when running the test though.<br/>        xfail = self.spec.get("_xfail", False)<br/>    <br/>        try:<br/>            verify_tests(self.spec)<br/>    <br/>            fixture_values = self._load_fixture_values()<br/>            self.global_cfg["variables"].update(fixture_values)<br/>    <br/>&gt;           run_test(self.path, self.spec, self.global_cfg)<br/><br/>c:\python27\lib\site-packages\tavern\testutils\pytesthook.py:449: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>in_file = local('C:\\Venkatesh\\PyCharm_Workspace\\tavern_multiple_config_file_in_global_setup\\tests\\test_using_tavern_timeout.tavern.yaml')<br/>test_spec = {'stages': [{'request': {'url': '{server_url:s}{posts_api_endpoint:s}/6@@', 'm...avern works with timeout option with connection timeout with test case failed'}<br/>global_cfg = {'backends': {'http': 'requests', 'mqtt': 'paho-mqtt'}, 'description': 'Reusable test stage for authentication/API tes...e_config_file_in_global_setup.test_utilities.helpers:retrieve_user_details_form_of_dict'}}, 'status_code': 200}}], ...}<br/><br/>    def run_test(in_file, test_spec, global_cfg):<br/>        """Run a single tavern test<br/>    <br/>        Note that each tavern test can consist of multiple requests (log in,<br/>        create, update, delete, etc).<br/>    <br/>        The global configuration is copied and used as an initial configuration for<br/>        this test. Any values which are saved from any tests are saved into this<br/>        test block and can be used for formatting in later stages in the test.<br/>    <br/>        Args:<br/>            in_file (str): filename containing this test<br/>            test_spec (dict): The specification for this test<br/>            global_cfg (dict): Any global configuration for this test<br/>    <br/>        No Longer Raises:<br/>            TavernException: If any of the tests failed<br/>        """<br/>    <br/>        # pylint: disable=too-many-locals<br/>    <br/>        # Initialise test config for this test with the global configuration before<br/>        # starting<br/>        test_block_config = dict(global_cfg)<br/>    <br/>        if "variables" not in test_block_config:<br/>            test_block_config["variables"] = {}<br/>    <br/>        tavern_box = Box({<br/>            "env_vars": dict(os.environ),<br/>        })<br/>    <br/>        if not test_spec:<br/>            logger.warning("Empty test block in %s", in_file)<br/>            return<br/>    <br/>        available_stages = {}<br/>        if test_spec.get("includes"):<br/>            for included in test_spec["includes"]:<br/>                if "variables" in included:<br/>                    formatted_include = format_keys(included["variables"], {"tavern": tavern_box})<br/>                    test_block_config["variables"].update(formatted_include)<br/>    <br/>                if "stages" in included:<br/>                    for stage in included["stages"]:<br/>                        if stage["id"] in available_stages:<br/>                            raise exceptions.DuplicateStageDefinitionError(<br/>                                "Stage with specified id already defined: {}".format(stage["id"]))<br/>                        available_stages[stage["id"]] = stage<br/>    <br/>        test_block_config["variables"]["tavern"] = tavern_box<br/>    <br/>        test_block_name = test_spec["test_name"]<br/>    <br/>        # Strict on body by default<br/>        default_strictness = test_block_config["strict"]<br/>    <br/>        logger.info("Running test : %s", test_block_name)<br/>    <br/>        with ExitStack() as stack:<br/>            test_spec["stages"] = _resolve_test_stages(test_spec, available_stages)<br/>            sessions = get_extra_sessions(test_spec, test_block_config)<br/>    <br/>            for name, session in sessions.items():<br/>                logger.debug("Entering context for %s", name)<br/>                stack.enter_context(session)<br/>    <br/>            # Run tests in a path in order<br/>            for stage in test_spec["stages"]:<br/>                if stage.get('skip'):<br/>                    continue<br/>    <br/>                test_block_config["strict"] = default_strictness<br/>    <br/>                # Can be overridden per stage<br/>                # NOTE<br/>                # this is hardcoded to check for the 'response' block. In the far<br/>                # future there might not be a response block, but at the moment it<br/>                # is the hardcoded value for any HTTP request.<br/>                if stage.get("response", {}):<br/>                    if stage.get("response").get("strict", None) is not None:<br/>                        stage_strictness = stage.get("response").get("strict", None)<br/>                    elif test_spec.get("strict", None) is not None:<br/>                        stage_strictness = test_spec.get("strict", None)<br/>                    else:<br/>                        stage_strictness = default_strictness<br/>    <br/>                    logger.debug("Strict key checking for this stage is '%s'", stage_strictness)<br/>    <br/>                    test_block_config["strict"] = stage_strictness<br/>                elif default_strictness:<br/>                    logger.debug("Default strictness '%s' ignored for this stage", default_strictness)<br/>    <br/>                # Wrap run_stage with retry helper<br/>                run_stage_with_retries = retry(stage)(run_stage)<br/>    <br/>                try:<br/>&gt;                   run_stage_with_retries(sessions, stage, tavern_box, test_block_config)<br/><br/>c:\python27\lib\site-packages\tavern\core.py:144: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>sessions = {'requests': &lt;requests.sessions.Session object at 0x06080970&gt;}<br/>stage = {'request': {'url': '{server_url:s}{posts_api_endpoint:s}/6@@', 'method': 'GET...negative response/failed", 'response': {'body': {'id': 5}, 'status_code': 200}}<br/>tavern_box = &lt;Box: {'request_vars': {'timeout': 10, 'stream': False, 'url': 'https://jsonpl...NT', 'PUBLIC': 'C:\\Users\\Public', 'USERPROFILE': 'C:\\Users\\VenkateshKri'}}&gt;<br/>test_block_config = {'backends': {'http': 'requests', 'mqtt': 'paho-mqtt'}, 'description': 'Reusable test stage for authentication/API tes...e_config_file_in_global_setup.test_utilities.helpers:retrieve_user_details_form_of_dict'}}, 'status_code': 200}}], ...}<br/><br/>    def run_stage(sessions, stage, tavern_box, test_block_config):<br/>        """Run one stage from the test<br/>    <br/>        Args:<br/>            sessions (list): List of relevant 'session' objects used for this test<br/>            stage (dict): specification of stage to be run<br/>            tavern_box (box.Box): Box object containing format variables to be used<br/>                in test<br/>            test_block_config (dict): available variables for test<br/>        """<br/>        name = stage["name"]<br/>    <br/>        r = get_request_type(stage, test_block_config, sessions)<br/>    <br/>        tavern_box.update(request_vars=r.request_vars)<br/>    <br/>        expected = get_expected(stage, test_block_config, sessions)<br/>    <br/>        delay(stage, "before")<br/>    <br/>        logger.info("Running stage : %s", name)<br/>        response = r.run()<br/>    <br/>        verifiers = get_verifiers(stage, test_block_config, sessions, expected)<br/>        for v in verifiers:<br/>&gt;           saved = v.verify(response)<br/><br/>c:\python27\lib\site-packages\tavern\core.py:179: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;tavern._plugins.rest.response.RestResponse object at 0x06DCA4D0&gt;<br/>response = &lt;Response [404]&gt;<br/><br/>    def verify(self, response):<br/>        """Verify response against expected values and returns any values that<br/>        we wanted to save for use in future requests<br/>    <br/>        There are various ways to 'validate' a block - a specific function, just<br/>        matching values, validating a schema, etc...<br/>    <br/>        Args:<br/>            response (requests.Response): response object<br/>    <br/>        Returns:<br/>            dict: Any saved values<br/>    <br/>        Raises:<br/>            TestFailError: Something went wrong with validating the response<br/>        """<br/>        # pylint: disable=too-many-statements<br/>    <br/>        self._verbose_log_response(response)<br/>    <br/>        self.response = response<br/>        self.status_code = response.status_code<br/>    <br/>        try:<br/>            body = response.json()<br/>        except ValueError:<br/>            body = None<br/>    <br/>        self._check_status_code(response.status_code, body)<br/>    <br/>        if self.validate_function:<br/>            try:<br/>                self.validate_function(response)<br/>            except Exception as e: #pylint: disable=broad-except<br/>                self._adderr("Error calling validate function '%s':\n%s",<br/>                    self.validate_function.func,<br/>                    indent_err_text(traceback.format_exc()),<br/>                    e=e)<br/>    <br/>        # Get any keys to save<br/>        saved = {}<br/>    <br/>        redirect_query_params = self._get_redirect_query_params(response)<br/>    <br/>        saved.update(self._save_value("body", body))<br/>        saved.update(self._save_value("headers", response.headers))<br/>        saved.update(self._save_value("redirect_query_params", redirect_query_params))<br/>    <br/>        for cookie in self.expected.get("cookies", []):<br/>            if cookie not in response.cookies:<br/>                self._adderr("No cookie named '%s' in response", cookie)<br/>    <br/>        try:<br/>            wrapped = get_wrapped_response_function(self.expected["save"]["$ext"])<br/>        except KeyError:<br/>            logger.debug("No save function for this stage")<br/>        else:<br/>            try:<br/>                to_save = wrapped(response)<br/>            except Exception as e: #pylint: disable=broad-except<br/>                self._adderr("Error calling save function '%s':\n%s",<br/>                    wrapped.func,<br/>                    indent_err_text(traceback.format_exc()),<br/>                    e=e)<br/>            else:<br/>                if isinstance(to_save, dict):<br/>                    saved.update(to_save)<br/>                elif to_save is not None:<br/>                    self._adderr("Unexpected return value '%s' from $ext save function")<br/>    <br/>        self._validate_block("body", body)<br/>        self._validate_block("headers", response.headers)<br/>        self._validate_block("redirect_query_params", redirect_query_params)<br/>    <br/>        if self.errors:<br/>&gt;           raise TestFailError("Test '{:s}' failed:\n{:s}".format(self.name, self._str_errors()), failures=self.errors)<br/><span class="error">E           TestFailError: Test 'Interact with pytest's timeout option and negative response/failed' failed:</span><br/><span class="error">E           - Status code was 404, expected 200:</span><br/><span class="error">E               {}</span><br/><span class="error">E           - Value mismatch in body: Structure of returned data was different than expected  - Keys missing from response: set(['id']) (expected = '{'id': 5}' (type = &lt;type 'dict'&gt;), actual = '{}' (type = &lt;type 'dict'&gt;))</span><br/><br/>c:\python27\lib\site-packages\tavern\_plugins\rest\response.py:207: TestFailError<br/>------------------------------ Captured log call -------------------------------<br/>base.py                     37 ERROR    Status code was 404, expected 200:
+    {}
+base.py                     37 ERROR    Value mismatch in body: Structure of returned data was different than expected  - Keys missing from response: set(['id']) (expected = '{'id': 5}' (type = &lt;type 'dict'&gt;), actual = '{}' (type = &lt;type 'dict'&gt;))</div></td></tr></tbody>
+      <tbody class="xfailed results-table-row">
+        <tr>
+          <td class="col-result">XFailed</td>
+          <td class="col-name">tests/test_mark_with_default_tags.tavern.yaml::Marking tests with default tags available in tavern - xfail mark option</td>
+          <td class="col-duration">0.42</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">self = &lt;CallInfo when='call' exception: Test 'Tests with &lt;xfail&gt; marks available in t...d["id"] = '2' (type = &lt;type 'int'&gt;), actual["id"] = '1' (type = &lt;type 'int'&gt;))&gt;<br/>func = &lt;function &lt;lambda&gt; at 0x069047F0&gt;, when = 'call'<br/>treat_keyboard_interrupt_as_exception = False<br/><br/>    def __init__(self, func, when, treat_keyboard_interrupt_as_exception=False):<br/>        #: context of invocation: one of "setup", "call",<br/>        #: "teardown", "memocollect"<br/>        self.when = when<br/>        self.start = time()<br/>        try:<br/>&gt;           self.result = func()<br/><br/>c:\python27\lib\site-packages\_pytest\runner.py:211: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>&gt;       lambda: ihook(item=item, **kwds),<br/>        when=when,<br/>        treat_keyboard_interrupt_as_exception=item.config.getvalue("usepdb"),<br/>    )<br/><br/>c:\python27\lib\site-packages\_pytest\runner.py:193: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;_HookCaller 'pytest_runtest_call'&gt;, args = ()<br/>kwargs = {'item': &lt;YamlItem 'Marking tests with default tags available in tavern - xfail mark option'&gt;}<br/>notincall = set([])<br/><br/>    def __call__(self, *args, **kwargs):<br/>        if args:<br/>            raise TypeError("hook calling supports only keyword arguments")<br/>        assert not self.is_historic()<br/>        if self.spec and self.spec.argnames:<br/>            notincall = (<br/>                set(self.spec.argnames) - set(["__multicall__"]) - set(kwargs.keys())<br/>            )<br/>            if notincall:<br/>                warnings.warn(<br/>                    "Argument(s) {} which are declared in the hookspec "<br/>                    "can not be found in this hook call".format(tuple(notincall)),<br/>                    stacklevel=2,<br/>                )<br/>&gt;       return self._hookexec(self, self.get_hookimpls(), kwargs)<br/><br/>c:\python27\lib\site-packages\pluggy\hooks.py:284: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;_pytest.config.PytestPluginManager object at 0x05E94AD0&gt;<br/>hook = &lt;_HookCaller 'pytest_runtest_call'&gt;<br/>methods = [&lt;HookImpl plugin_name='runner', plugin=&lt;module '_pytest.runner' from 'c:\python27\lib\site-packages\_pytest\runner.py... at 0x067C58F0&gt;&gt;, &lt;HookImpl plugin_name='logging-plugin', plugin=&lt;_pytest.logging.LoggingPlugin object at 0x067BDB70&gt;&gt;]<br/>kwargs = {'item': &lt;YamlItem 'Marking tests with default tags available in tavern - xfail mark option'&gt;}<br/><br/>    def _hookexec(self, hook, methods, kwargs):<br/>        # called from all hookcaller instances.<br/>        # enable_tracing will set its own wrapping function at self._inner_hookexec<br/>&gt;       return self._inner_hookexec(hook, methods, kwargs)<br/><br/>c:\python27\lib\site-packages\pluggy\manager.py:67: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>hook = &lt;_HookCaller 'pytest_runtest_call'&gt;<br/>methods = [&lt;HookImpl plugin_name='runner', plugin=&lt;module '_pytest.runner' from 'c:\python27\lib\site-packages\_pytest\runner.py... at 0x067C58F0&gt;&gt;, &lt;HookImpl plugin_name='logging-plugin', plugin=&lt;_pytest.logging.LoggingPlugin object at 0x067BDB70&gt;&gt;]<br/>kwargs = {'item': &lt;YamlItem 'Marking tests with default tags available in tavern - xfail mark option'&gt;}<br/><br/>    self._inner_hookexec = lambda hook, methods, kwargs: hook.multicall(<br/>        methods,<br/>        kwargs,<br/>&gt;       firstresult=hook.spec.opts.get("firstresult") if hook.spec else False,<br/>    )<br/><br/>c:\python27\lib\site-packages\pluggy\manager.py:61: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>hook_impls = [&lt;HookImpl plugin_name='runner', plugin=&lt;module '_pytest.runner' from 'c:\python27\lib\site-packages\_pytest\runner.py... at 0x067C58F0&gt;&gt;, &lt;HookImpl plugin_name='logging-plugin', plugin=&lt;_pytest.logging.LoggingPlugin object at 0x067BDB70&gt;&gt;]<br/>caller_kwargs = {'item': &lt;YamlItem 'Marking tests with default tags available in tavern - xfail mark option'&gt;}<br/>firstresult = False<br/><br/>    def _multicall(hook_impls, caller_kwargs, firstresult=False):<br/>        """Execute a call into multiple python functions/methods and return the<br/>        result(s).<br/>    <br/>        ``caller_kwargs`` comes from _HookCaller.__call__().<br/>        """<br/>        __tracebackhide__ = True<br/>        results = []<br/>        excinfo = None<br/>        try:  # run impl and wrapper setup functions in a loop<br/>            teardowns = []<br/>            try:<br/>                for hook_impl in reversed(hook_impls):<br/>                    try:<br/>                        args = [caller_kwargs[argname] for argname in hook_impl.argnames]<br/>                    except KeyError:<br/>                        for argname in hook_impl.argnames:<br/>                            if argname not in caller_kwargs:<br/>                                raise HookCallError(<br/>                                    "hook call must provide argument %r" % (argname,)<br/>                                )<br/>    <br/>                    if hook_impl.hookwrapper:<br/>                        try:<br/>                            gen = hook_impl.function(*args)<br/>                            next(gen)  # first yield<br/>                            teardowns.append(gen)<br/>                        except StopIteration:<br/>                            _raise_wrapfail(gen, "did not yield")<br/>                    else:<br/>                        res = hook_impl.function(*args)<br/>                        if res is not None:<br/>                            results.append(res)<br/>                            if firstresult:  # halt further impl calls<br/>                                break<br/>            except BaseException:<br/>                excinfo = sys.exc_info()<br/>        finally:<br/>            if firstresult:  # first result hooks return a single value<br/>                outcome = _Result(results[0] if results else None, excinfo)<br/>            else:<br/>                outcome = _Result(results, excinfo)<br/>    <br/>            # run all wrapper post-yield blocks<br/>            for gen in reversed(teardowns):<br/>                try:<br/>                    gen.send(outcome)<br/>                    _raise_wrapfail(gen, "has second yield")<br/>                except StopIteration:<br/>                    pass<br/>    <br/>&gt;           return outcome.get_result()<br/><br/>c:\python27\lib\site-packages\pluggy\callers.py:208: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;pluggy.callers._Result object at 0x06B6E9D0&gt;<br/><br/>    def get_result(self):<br/>        """Get the result(s) for this hook call.<br/>    <br/>        If the hook was marked as a ``firstresult`` only a single value<br/>        will be returned otherwise a list of results.<br/>        """<br/>        __tracebackhide__ = True<br/>        if self._excinfo is None:<br/>            return self._result<br/>        else:<br/>            ex = self._excinfo<br/>            if _py3:<br/>                raise ex[1].with_traceback(ex[2])<br/>&gt;           _reraise(*ex)  # noqa<br/><br/>c:\python27\lib\site-packages\pluggy\callers.py:81: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>hook_impls = [&lt;HookImpl plugin_name='runner', plugin=&lt;module '_pytest.runner' from 'c:\python27\lib\site-packages\_pytest\runner.py... at 0x067C58F0&gt;&gt;, &lt;HookImpl plugin_name='logging-plugin', plugin=&lt;_pytest.logging.LoggingPlugin object at 0x067BDB70&gt;&gt;]<br/>caller_kwargs = {'item': &lt;YamlItem 'Marking tests with default tags available in tavern - xfail mark option'&gt;}<br/>firstresult = False<br/><br/>    def _multicall(hook_impls, caller_kwargs, firstresult=False):<br/>        """Execute a call into multiple python functions/methods and return the<br/>        result(s).<br/>    <br/>        ``caller_kwargs`` comes from _HookCaller.__call__().<br/>        """<br/>        __tracebackhide__ = True<br/>        results = []<br/>        excinfo = None<br/>        try:  # run impl and wrapper setup functions in a loop<br/>            teardowns = []<br/>            try:<br/>                for hook_impl in reversed(hook_impls):<br/>                    try:<br/>                        args = [caller_kwargs[argname] for argname in hook_impl.argnames]<br/>                    except KeyError:<br/>                        for argname in hook_impl.argnames:<br/>                            if argname not in caller_kwargs:<br/>                                raise HookCallError(<br/>                                    "hook call must provide argument %r" % (argname,)<br/>                                )<br/>    <br/>                    if hook_impl.hookwrapper:<br/>                        try:<br/>                            gen = hook_impl.function(*args)<br/>                            next(gen)  # first yield<br/>                            teardowns.append(gen)<br/>                        except StopIteration:<br/>                            _raise_wrapfail(gen, "did not yield")<br/>                    else:<br/>&gt;                       res = hook_impl.function(*args)<br/><br/>c:\python27\lib\site-packages\pluggy\callers.py:187: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>item = &lt;YamlItem 'Marking tests with default tags available in tavern - xfail mark option'&gt;<br/><br/>    def pytest_runtest_call(item):<br/>        _update_current_test_var(item, "call")<br/>        sys.last_type, sys.last_value, sys.last_traceback = (None, None, None)<br/>        try:<br/>&gt;           item.runtest()<br/><br/>c:\python27\lib\site-packages\_pytest\runner.py:121: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;YamlItem 'Marking tests with default tags available in tavern - xfail mark option'&gt;<br/><br/>    def runtest(self):<br/>        self.global_cfg = self._parse_arguments()<br/>    <br/>        self.global_cfg.setdefault("variables", {})<br/>    <br/>        load_plugins(self.global_cfg)<br/>    <br/>        # INTERNAL<br/>        # NOTE - now that we can 'mark' tests, we could use pytest.mark.xfail<br/>        # instead. This doesn't differentiate between an error in verification<br/>        # and an error when running the test though.<br/>        xfail = self.spec.get("_xfail", False)<br/>    <br/>        try:<br/>            verify_tests(self.spec)<br/>    <br/>            fixture_values = self._load_fixture_values()<br/>            self.global_cfg["variables"].update(fixture_values)<br/>    <br/>&gt;           run_test(self.path, self.spec, self.global_cfg)<br/><br/>c:\python27\lib\site-packages\tavern\testutils\pytesthook.py:449: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>in_file = local('C:\\Venkatesh\\PyCharm_Workspace\\tavern_multiple_config_file_in_global_setup\\tests\\test_mark_with_default_tags.tavern.yaml')<br/>test_spec = {'marks': ['xfail'], 'stages': [{'request': {'url': '{server_url:s}{posts_api_...me': 'Marking tests with default tags available in tavern - xfail mark option'}<br/>global_cfg = {'backends': {'http': 'requests', 'mqtt': 'paho-mqtt'}, 'description': 'Reusable test stage for authentication/API tes...e_config_file_in_global_setup.test_utilities.helpers:retrieve_user_details_form_of_dict'}}, 'status_code': 200}}], ...}<br/><br/>    def run_test(in_file, test_spec, global_cfg):<br/>        """Run a single tavern test<br/>    <br/>        Note that each tavern test can consist of multiple requests (log in,<br/>        create, update, delete, etc).<br/>    <br/>        The global configuration is copied and used as an initial configuration for<br/>        this test. Any values which are saved from any tests are saved into this<br/>        test block and can be used for formatting in later stages in the test.<br/>    <br/>        Args:<br/>            in_file (str): filename containing this test<br/>            test_spec (dict): The specification for this test<br/>            global_cfg (dict): Any global configuration for this test<br/>    <br/>        No Longer Raises:<br/>            TavernException: If any of the tests failed<br/>        """<br/>    <br/>        # pylint: disable=too-many-locals<br/>    <br/>        # Initialise test config for this test with the global configuration before<br/>        # starting<br/>        test_block_config = dict(global_cfg)<br/>    <br/>        if "variables" not in test_block_config:<br/>            test_block_config["variables"] = {}<br/>    <br/>        tavern_box = Box({<br/>            "env_vars": dict(os.environ),<br/>        })<br/>    <br/>        if not test_spec:<br/>            logger.warning("Empty test block in %s", in_file)<br/>            return<br/>    <br/>        available_stages = {}<br/>        if test_spec.get("includes"):<br/>            for included in test_spec["includes"]:<br/>                if "variables" in included:<br/>                    formatted_include = format_keys(included["variables"], {"tavern": tavern_box})<br/>                    test_block_config["variables"].update(formatted_include)<br/>    <br/>                if "stages" in included:<br/>                    for stage in included["stages"]:<br/>                        if stage["id"] in available_stages:<br/>                            raise exceptions.DuplicateStageDefinitionError(<br/>                                "Stage with specified id already defined: {}".format(stage["id"]))<br/>                        available_stages[stage["id"]] = stage<br/>    <br/>        test_block_config["variables"]["tavern"] = tavern_box<br/>    <br/>        test_block_name = test_spec["test_name"]<br/>    <br/>        # Strict on body by default<br/>        default_strictness = test_block_config["strict"]<br/>    <br/>        logger.info("Running test : %s", test_block_name)<br/>    <br/>        with ExitStack() as stack:<br/>            test_spec["stages"] = _resolve_test_stages(test_spec, available_stages)<br/>            sessions = get_extra_sessions(test_spec, test_block_config)<br/>    <br/>            for name, session in sessions.items():<br/>                logger.debug("Entering context for %s", name)<br/>                stack.enter_context(session)<br/>    <br/>            # Run tests in a path in order<br/>            for stage in test_spec["stages"]:<br/>                if stage.get('skip'):<br/>                    continue<br/>    <br/>                test_block_config["strict"] = default_strictness<br/>    <br/>                # Can be overridden per stage<br/>                # NOTE<br/>                # this is hardcoded to check for the 'response' block. In the far<br/>                # future there might not be a response block, but at the moment it<br/>                # is the hardcoded value for any HTTP request.<br/>                if stage.get("response", {}):<br/>                    if stage.get("response").get("strict", None) is not None:<br/>                        stage_strictness = stage.get("response").get("strict", None)<br/>                    elif test_spec.get("strict", None) is not None:<br/>                        stage_strictness = test_spec.get("strict", None)<br/>                    else:<br/>                        stage_strictness = default_strictness<br/>    <br/>                    logger.debug("Strict key checking for this stage is '%s'", stage_strictness)<br/>    <br/>                    test_block_config["strict"] = stage_strictness<br/>                elif default_strictness:<br/>                    logger.debug("Default strictness '%s' ignored for this stage", default_strictness)<br/>    <br/>                # Wrap run_stage with retry helper<br/>                run_stage_with_retries = retry(stage)(run_stage)<br/>    <br/>                try:<br/>&gt;                   run_stage_with_retries(sessions, stage, tavern_box, test_block_config)<br/><br/>c:\python27\lib\site-packages\tavern\core.py:144: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>sessions = {'requests': &lt;requests.sessions.Session object at 0x06B6B290&gt;}<br/>stage = {'request': {'url': '{server_url:s}{posts_api_endpoint:s}/1', 'method': 'GET'}... tavern and hit /posts/1', 'response': {'body': {'id': 2}, 'status_code': 200}}<br/>tavern_box = &lt;Box: {'request_vars': {'url': 'https://jsonplaceholder.typicode.com/posts/1',...NT', 'PUBLIC': 'C:\\Users\\Public', 'USERPROFILE': 'C:\\Users\\VenkateshKri'}}&gt;<br/>test_block_config = {'backends': {'http': 'requests', 'mqtt': 'paho-mqtt'}, 'description': 'Reusable test stage for authentication/API tes...e_config_file_in_global_setup.test_utilities.helpers:retrieve_user_details_form_of_dict'}}, 'status_code': 200}}], ...}<br/><br/>    def run_stage(sessions, stage, tavern_box, test_block_config):<br/>        """Run one stage from the test<br/>    <br/>        Args:<br/>            sessions (list): List of relevant 'session' objects used for this test<br/>            stage (dict): specification of stage to be run<br/>            tavern_box (box.Box): Box object containing format variables to be used<br/>                in test<br/>            test_block_config (dict): available variables for test<br/>        """<br/>        name = stage["name"]<br/>    <br/>        r = get_request_type(stage, test_block_config, sessions)<br/>    <br/>        tavern_box.update(request_vars=r.request_vars)<br/>    <br/>        expected = get_expected(stage, test_block_config, sessions)<br/>    <br/>        delay(stage, "before")<br/>    <br/>        logger.info("Running stage : %s", name)<br/>        response = r.run()<br/>    <br/>        verifiers = get_verifiers(stage, test_block_config, sessions, expected)<br/>        for v in verifiers:<br/>&gt;           saved = v.verify(response)<br/><br/>c:\python27\lib\site-packages\tavern\core.py:179: <br/>_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _<br/><br/>self = &lt;tavern._plugins.rest.response.RestResponse object at 0x06CD97F0&gt;<br/>response = &lt;Response [200]&gt;<br/><br/>    def verify(self, response):<br/>        """Verify response against expected values and returns any values that<br/>        we wanted to save for use in future requests<br/>    <br/>        There are various ways to 'validate' a block - a specific function, just<br/>        matching values, validating a schema, etc...<br/>    <br/>        Args:<br/>            response (requests.Response): response object<br/>    <br/>        Returns:<br/>            dict: Any saved values<br/>    <br/>        Raises:<br/>            TestFailError: Something went wrong with validating the response<br/>        """<br/>        # pylint: disable=too-many-statements<br/>    <br/>        self._verbose_log_response(response)<br/>    <br/>        self.response = response<br/>        self.status_code = response.status_code<br/>    <br/>        try:<br/>            body = response.json()<br/>        except ValueError:<br/>            body = None<br/>    <br/>        self._check_status_code(response.status_code, body)<br/>    <br/>        if self.validate_function:<br/>            try:<br/>                self.validate_function(response)<br/>            except Exception as e: #pylint: disable=broad-except<br/>                self._adderr("Error calling validate function '%s':\n%s",<br/>                    self.validate_function.func,<br/>                    indent_err_text(traceback.format_exc()),<br/>                    e=e)<br/>    <br/>        # Get any keys to save<br/>        saved = {}<br/>    <br/>        redirect_query_params = self._get_redirect_query_params(response)<br/>    <br/>        saved.update(self._save_value("body", body))<br/>        saved.update(self._save_value("headers", response.headers))<br/>        saved.update(self._save_value("redirect_query_params", redirect_query_params))<br/>    <br/>        for cookie in self.expected.get("cookies", []):<br/>            if cookie not in response.cookies:<br/>                self._adderr("No cookie named '%s' in response", cookie)<br/>    <br/>        try:<br/>            wrapped = get_wrapped_response_function(self.expected["save"]["$ext"])<br/>        except KeyError:<br/>            logger.debug("No save function for this stage")<br/>        else:<br/>            try:<br/>                to_save = wrapped(response)<br/>            except Exception as e: #pylint: disable=broad-except<br/>                self._adderr("Error calling save function '%s':\n%s",<br/>                    wrapped.func,<br/>                    indent_err_text(traceback.format_exc()),<br/>                    e=e)<br/>            else:<br/>                if isinstance(to_save, dict):<br/>                    saved.update(to_save)<br/>                elif to_save is not None:<br/>                    self._adderr("Unexpected return value '%s' from $ext save function")<br/>    <br/>        self._validate_block("body", body)<br/>        self._validate_block("headers", response.headers)<br/>        self._validate_block("redirect_query_params", redirect_query_params)<br/>    <br/>        if self.errors:<br/>&gt;           raise TestFailError("Test '{:s}' failed:\n{:s}".format(self.name, self._str_errors()), failures=self.errors)<br/><span class="error">E           TestFailError: Test 'Tests with &lt;xfail&gt; marks available in tavern and hit /posts/1' failed:</span><br/><span class="error">E           - Value mismatch in body: Key mismatch: (expected["id"] = '2' (type = &lt;type 'int'&gt;), actual["id"] = '1' (type = &lt;type 'int'&gt;))</span><br/><br/>c:\python27\lib\site-packages\tavern\_plugins\rest\response.py:207: TestFailError<br/>------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 2}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto', u'userId': 1, u'id': 1, u'title': u'sunt aut facere repellat provident occaecati excepturi optio reprehenderit'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'qui..., 'userId': 1} == {'id': 2}
+  Differing items:
+  {'id': 1} != {'id': 2}
+  Left contains more items:
+  {u'body': u'quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto',
+   u'title': u'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
+   u'userId': 1}
+  Full diff:
+  + {'id': 2}
+  - {u'body': u'quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto',
+  -  u'id': 1,
+  -  u'title': u'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
+  -  u'userId': 1}
+dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': None}' (type = &lt;type 'dict'&gt;), actual = '{u'body': None, u'userId': None, u'id': None, u'title': None}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': None...userId': None} == {'id': None}
+  Common items:
+  {'id': None}
+  Left contains more items:
+  {u'body': None, u'title': None, u'userId': None}
+  Full diff:
+  - {u'body': None, u'id': None, u'title': None, u'userId': None}
+  + {'id': None}
+base.py                     37 ERROR    Value mismatch in body: Key mismatch: (expected["id"] = '2' (type = &lt;type 'int'&gt;), actual["id"] = '1' (type = &lt;type 'int'&gt;))</div></td></tr></tbody>
+      <tbody class="skipped results-table-row">
+        <tr>
+          <td class="col-result">Skipped</td>
+          <td class="col-name">tests/test_mark_with_default_tags.tavern.yaml::Marking tests with default tags available in tavern - skip mark option::setup</td>
+          <td class="col-duration">0.02</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">('tests\\test_mark_with_default_tags.tavern.yaml', 0, u'Skipped: unconditional skip')<br/></div></td></tr></tbody>
+      <tbody class="skipped results-table-row">
+        <tr>
+          <td class="col-result">Skipped</td>
+          <td class="col-name">tests/test_mark_with_default_tags.tavern.yaml::Marking tests with default tags available in tavern - skipif mark option and condition satisfied::setup</td>
+          <td class="col-duration">0.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">('tests\\test_mark_with_default_tags.tavern.yaml', 0, u"Skipped: condition: 'https://jsonplaceholder.typicode.com' in 'https://jsonplaceholder.typicode.com'")<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_global_config_files.tavern.yaml::Test type1 of reusing requests or any other parts in yaml fragments</td>
+          <td class="col-duration">1.92</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_global_config_files.tavern.yaml::Make sure referencing/alaising works by referencing the above mentioned stage</td>
+          <td class="col-duration">0.50</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_global_config_files.tavern.yaml::Verify the functionality of delay_after parameter in tavern</td>
+          <td class="col-duration">3.54</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_global_config_files.tavern.yaml::Verify the test execution after delay_after keyword stage/test invoked</td>
+          <td class="col-duration">0.59</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 2}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla', u'userId': 1, u'id': 2, u'title': u'qui est esse'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'est..., 'userId': 1} == {'id': 2}
+  Common items:
+  {'id': 2}
+  Left contains more items:
+  {u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla',
+   u'title': u'qui est esse',
+   u'userId': 1}
+  Full diff:
+  + {'id': 2}
+  - {u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla',
+  -  u'id': 2,
+  -  u'title': u'qui est esse',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_mark_with_custom_tags.tavern.yaml::Marking tests with custom mark tags available in tavern - using sanity mark tag</td>
+          <td class="col-duration">0.77</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_mark_with_custom_tags.tavern.yaml::Marking tests with custom mark tags available in tavern - using regression mark tag</td>
+          <td class="col-duration">1.17</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 3}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'et iusto sed quo iure\nvoluptatem occaecati omnis eligendi aut ad\nvoluptatem doloribus vel accusantium quis pariatur\nmolestiae porro eius odio et labore et velit aut', u'userId': 1, u'id': 3, u'title': u'ea molestias quasi exercitationem repellat qui ipsa sit aut'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'et ..., 'userId': 1} == {'id': 3}
+  Common items:
+  {'id': 3}
+  Left contains more items:
+  {u'body': u'et iusto sed quo iure\nvoluptatem occaecati omnis eligendi aut ad\nvoluptatem doloribus vel accusantium quis pariatur\nmolestiae porro eius odio et labore et velit aut',
+   u'title': u'ea molestias quasi exercitationem repellat qui ipsa sit aut',
+   u'userId': 1}
+  Full diff:
+  + {'id': 3}
+  - {u'body': u'et iusto sed quo iure\nvoluptatem occaecati omnis eligendi aut ad\nvoluptatem doloribus vel accusantium quis pariatur\nmolestiae porro eius odio et labore et velit aut',
+  -  u'id': 3,
+  -  u'title': u'ea molestias quasi exercitationem repellat qui ipsa sit aut',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_mark_with_default_tags.tavern.yaml::Marking tests with default tags available in tavern - skipif mark option and condition not satisfied</td>
+          <td class="col-duration">0.89</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 2}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla', u'userId': 1, u'id': 2, u'title': u'qui est esse'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'est..., 'userId': 1} == {'id': 2}
+  Common items:
+  {'id': 2}
+  Left contains more items:
+  {u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla',
+   u'title': u'qui est esse',
+   u'userId': 1}
+  Full diff:
+  + {'id': 2}
+  - {u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla',
+  -  u'id': 2,
+  -  u'title': u'qui est esse',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_no_global_config.tavern.yaml::Create a test without global config file / that is by using !include option</td>
+          <td class="col-duration">0.93</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 2}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla', u'userId': 1, u'id': 2, u'title': u'qui est esse'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'est..., 'userId': 1} == {'id': 2}
+  Common items:
+  {'id': 2}
+  Left contains more items:
+  {u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla',
+   u'title': u'qui est esse',
+   u'userId': 1}
+  Full diff:
+  + {'id': 2}
+  - {u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla',
+  -  u'id': 2,
+  -  u'title': u'qui est esse',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one parametrize works effectively with post_id--[1]</td>
+          <td class="col-duration">0.90</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 1}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto', u'userId': 1, u'id': 1, u'title': u'sunt aut facere repellat provident occaecati excepturi optio reprehenderit'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'qui..., 'userId': 1} == {'id': 1}
+  Common items:
+  {'id': 1}
+  Left contains more items:
+  {u'body': u'quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto',
+   u'title': u'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
+   u'userId': 1}
+  Full diff:
+  + {'id': 1}
+  - {u'body': u'quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto',
+  -  u'id': 1,
+  -  u'title': u'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one parametrize works effectively with post_id--[2]</td>
+          <td class="col-duration">0.80</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 2}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla', u'userId': 1, u'id': 2, u'title': u'qui est esse'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'est..., 'userId': 1} == {'id': 2}
+  Common items:
+  {'id': 2}
+  Left contains more items:
+  {u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla',
+   u'title': u'qui est esse',
+   u'userId': 1}
+  Full diff:
+  + {'id': 2}
+  - {u'body': u'est rerum tempore vitae\nsequi sint nihil reprehenderit dolor beatae ea dolores neque\nfugiat blanditiis voluptate porro vel nihil molestiae ut reiciendis\nqui aperiam non debitis possimus qui neque nisi nulla',
+  -  u'id': 2,
+  -  u'title': u'qui est esse',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one or more parametrize works effectively with post_id--[1-3]</td>
+          <td class="col-duration">0.52</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 3}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'et iusto sed quo iure\nvoluptatem occaecati omnis eligendi aut ad\nvoluptatem doloribus vel accusantium quis pariatur\nmolestiae porro eius odio et labore et velit aut', u'userId': 1, u'id': 3, u'title': u'ea molestias quasi exercitationem repellat qui ipsa sit aut'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'et ..., 'userId': 1} == {'id': 3}
+  Common items:
+  {'id': 3}
+  Left contains more items:
+  {u'body': u'et iusto sed quo iure\nvoluptatem occaecati omnis eligendi aut ad\nvoluptatem doloribus vel accusantium quis pariatur\nmolestiae porro eius odio et labore et velit aut',
+   u'title': u'ea molestias quasi exercitationem repellat qui ipsa sit aut',
+   u'userId': 1}
+  Full diff:
+  + {'id': 3}
+  - {u'body': u'et iusto sed quo iure\nvoluptatem occaecati omnis eligendi aut ad\nvoluptatem doloribus vel accusantium quis pariatur\nmolestiae porro eius odio et labore et velit aut',
+  -  u'id': 3,
+  -  u'title': u'ea molestias quasi exercitationem repellat qui ipsa sit aut',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one or more parametrize works effectively with post_id--[1-4]</td>
+          <td class="col-duration">1.30</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 4}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'ullam et saepe reiciendis voluptatem adipisci\nsit amet autem assumenda provident rerum culpa\nquis hic commodi nesciunt rem tenetur doloremque ipsam iure\nquis sunt voluptatem rerum illo velit', u'userId': 1, u'id': 4, u'title': u'eum et est occaecati'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'ull..., 'userId': 1} == {'id': 4}
+  Common items:
+  {'id': 4}
+  Left contains more items:
+  {u'body': u'ullam et saepe reiciendis voluptatem adipisci\nsit amet autem assumenda provident rerum culpa\nquis hic commodi nesciunt rem tenetur doloremque ipsam iure\nquis sunt voluptatem rerum illo velit',
+   u'title': u'eum et est occaecati',
+   u'userId': 1}
+  Full diff:
+  + {'id': 4}
+  - {u'body': u'ullam et saepe reiciendis voluptatem adipisci\nsit amet autem assumenda provident rerum culpa\nquis hic commodi nesciunt rem tenetur doloremque ipsam iure\nquis sunt voluptatem rerum illo velit',
+  -  u'id': 4,
+  -  u'title': u'eum et est occaecati',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one or more parametrize works effectively with post_id--[2-3]</td>
+          <td class="col-duration">1.03</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 3}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'et iusto sed quo iure\nvoluptatem occaecati omnis eligendi aut ad\nvoluptatem doloribus vel accusantium quis pariatur\nmolestiae porro eius odio et labore et velit aut', u'userId': 1, u'id': 3, u'title': u'ea molestias quasi exercitationem repellat qui ipsa sit aut'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'et ..., 'userId': 1} == {'id': 3}
+  Common items:
+  {'id': 3}
+  Left contains more items:
+  {u'body': u'et iusto sed quo iure\nvoluptatem occaecati omnis eligendi aut ad\nvoluptatem doloribus vel accusantium quis pariatur\nmolestiae porro eius odio et labore et velit aut',
+   u'title': u'ea molestias quasi exercitationem repellat qui ipsa sit aut',
+   u'userId': 1}
+  Full diff:
+  + {'id': 3}
+  - {u'body': u'et iusto sed quo iure\nvoluptatem occaecati omnis eligendi aut ad\nvoluptatem doloribus vel accusantium quis pariatur\nmolestiae porro eius odio et labore et velit aut',
+  -  u'id': 3,
+  -  u'title': u'ea molestias quasi exercitationem repellat qui ipsa sit aut',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one or more parametrize works effectively with post_id--[2-4]</td>
+          <td class="col-duration">0.79</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 4}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'ullam et saepe reiciendis voluptatem adipisci\nsit amet autem assumenda provident rerum culpa\nquis hic commodi nesciunt rem tenetur doloremque ipsam iure\nquis sunt voluptatem rerum illo velit', u'userId': 1, u'id': 4, u'title': u'eum et est occaecati'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'ull..., 'userId': 1} == {'id': 4}
+  Common items:
+  {'id': 4}
+  Left contains more items:
+  {u'body': u'ullam et saepe reiciendis voluptatem adipisci\nsit amet autem assumenda provident rerum culpa\nquis hic commodi nesciunt rem tenetur doloremque ipsam iure\nquis sunt voluptatem rerum illo velit',
+   u'title': u'eum et est occaecati',
+   u'userId': 1}
+  Full diff:
+  + {'id': 4}
+  - {u'body': u'ullam et saepe reiciendis voluptatem adipisci\nsit amet autem assumenda provident rerum culpa\nquis hic commodi nesciunt rem tenetur doloremque ipsam iure\nquis sunt voluptatem rerum illo velit',
+  -  u'id': 4,
+  -  u'title': u'eum et est occaecati',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_referencing_alaising_in_common_location.tavern.yaml::Invoke the test with referenced stage</td>
+          <td class="col-duration">1.07</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="empty log">No log output captured.</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_using_fixtures_with_pytest_conftest.tavern.yaml::Make sure tavern marks with fixtures written in conftest.py by using tavern&apos;s usefixtures option</td>
+          <td class="col-duration">1.00</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 5}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'repudiandae veniam quaerat sunt sed\nalias aut fugiat sit autem sed est\nvoluptatem omnis possimus esse voluptatibus quis\nest aut tenetur dolor neque', u'userId': 1, u'id': 5, u'title': u'nesciunt quas odio'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'rep..., 'userId': 1} == {'id': 5}
+  Common items:
+  {'id': 5}
+  Left contains more items:
+  {u'body': u'repudiandae veniam quaerat sunt sed\nalias aut fugiat sit autem sed est\nvoluptatem omnis possimus esse voluptatibus quis\nest aut tenetur dolor neque',
+   u'title': u'nesciunt quas odio',
+   u'userId': 1}
+  Full diff:
+  + {'id': 5}
+  - {u'body': u'repudiandae veniam quaerat sunt sed\nalias aut fugiat sit autem sed est\nvoluptatem omnis possimus esse voluptatibus quis\nest aut tenetur dolor neque',
+  -  u'id': 5,
+  -  u'title': u'nesciunt quas odio',
+  -  u'userId': 1}</div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">tests/test_using_tavern_timeout.tavern.yaml::Make sure tavern works with timeout option with connection timeout with test case passed</td>
+          <td class="col-duration">0.80</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log">------------------------------ Captured log call -------------------------------<br/>dict_util.py               294 WARNING  Structure of returned data was different than expected  - Extra keys in response: set([u'body', u'userId', u'title']) (expected = '{'id': 8}' (type = &lt;type 'dict'&gt;), actual = '{u'body': u'dignissimos aperiam dolorem qui eum\nfacilis quibusdam animi sint suscipit qui sint possimus cum\nquaerat magni maiores excepturi\nipsam ut commodi dolor voluptatum modi aut vitae', u'userId': 1, u'id': 8, u'title': u'dolorem dolore est ipsam'}' (type = &lt;type 'dict'&gt;))
+Traceback (most recent call last):
+  File "c:\python27\lib\site-packages\tavern\util\dict_util.py", line 261, in check_keys_match_recursive
+    assert actual_val == expected_val
+AssertionError: assert {'body': 'dig..., 'userId': 1} == {'id': 8}
+  Common items:
+  {'id': 8}
+  Left contains more items:
+  {u'body': u'dignissimos aperiam dolorem qui eum\nfacilis quibusdam animi sint suscipit qui sint possimus cum\nquaerat magni maiores excepturi\nipsam ut commodi dolor voluptatum modi aut vitae',
+   u'title': u'dolorem dolore est ipsam',
+   u'userId': 1}
+  Full diff:
+  + {'id': 8}
+  - {u'body': u'dignissimos aperiam dolorem qui eum\nfacilis quibusdam animi sint suscipit qui sint possimus cum\nquaerat magni maiores excepturi\nipsam ut commodi dolor voluptatum modi aut vitae',
+  -  u'id': 8,
+  -  u'title': u'dolorem dolore est ipsam',
+  -  u'userId': 1}</div></td></tr></tbody></table></body></html>

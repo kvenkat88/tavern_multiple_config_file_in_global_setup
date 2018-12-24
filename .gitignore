@@ -6,6 +6,8 @@
 .idea/
 UNKNOWN.egg-info/
 
+tavern.log
+
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/

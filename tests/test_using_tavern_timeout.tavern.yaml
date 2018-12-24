@@ -1,0 +1,30 @@
+test_name: Make sure tavern works with timeout option with connection timeout with test case failed
+
+# If this request takes longer than 0.5 seconds to respond, the test will be considered as failed. A 2-tuple can also be passed
+# - the first value will be a connection timeout, and the second value will be the response timeout.
+
+stages:
+  - name: Interact with pytest's timeout option and negative response/failed
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/6@@"
+      method: GET
+      timeout: 10
+    response:
+      status_code: 200
+      body:
+        id: 5
+---
+
+test_name: Make sure tavern works with timeout option with connection timeout with test case passed
+
+stages:
+  - name: Interact with pytest's timeout option and postive response/testcase passed
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/8"
+      method: GET
+      timeout: 10
+    response:
+      status_code: 200
+      body:
+        id: 8
+---

@@ -1,0 +1,52 @@
+test_name: Make sure tavern marks with one parametrize works effectively with post_id--
+
+marks:
+  - parametrize:
+      key: post_id
+      vals:
+        - 1
+        - 2
+
+stages:
+  - name: Interact with parametrize option in tavern
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/{post_id}"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: !int "{post_id:d}"
+---
+test_name: Make sure tavern marks with one or more parametrize works effectively with post_id--
+
+marks:
+  - parametrize:
+      key: post_id
+      vals:
+        - 1
+        - 2
+
+  - parametrize:
+      key: post_id
+      vals:
+        - 3
+        - 4
+
+stages:
+  - name: Interact with parametrize option in tavern
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/{post_id}"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: !int "{post_id:d}"
+
+# Output:::
+  #tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one parametrize works effectively with post_id--[1] PASSED [ 16%]
+  #tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one parametrize works effectively with post_id--[2] PASSED [ 33%]
+  #tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one or more parametrize works effectively with post_id--[1-3] PASSED [ 50%]
+  #tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one or more parametrize works effectively with post_id--[1-4] PASSED [ 66%]
+  #tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one or more parametrize works effectively with post_id--[2-3] PASSED [ 83%]
+  #tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one or more parametrize works effectively with post_id--[2-4] PASSED [100%]
+---
