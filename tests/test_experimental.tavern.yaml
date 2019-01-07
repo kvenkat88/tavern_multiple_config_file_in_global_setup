@@ -1,0 +1,65 @@
+#Tavern fixture would work within the tests/single document not separated by ---
+
+test_name: Provide the post_id by using pytest fixtures available in conftest.py file
+#https://github.com/taverntesting/tavern/pull/115/commits/b49ff9ab6de7f2830c7a186c4a11556fef444916
+#https://github.com/taverntesting/tavern/issues/80
+
+marks:
+  - usefixtures:
+      - provide_post_id
+
+stages:
+  - name: Provide the post_id by using pytest fixtures available in conftest.py file
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/{provide_post_id}"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: !int "{provide_post_id:d}"
+---
+test_name: Check whethet external function($ext) is validating the assert statement mentioned in helper utility
+
+marks:
+  - usefixtures:
+      - provide_post_id
+
+stages:
+  - name: Provide the post_id by using pytest fixtures available in conftest.py file
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/{provide_post_id}"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        #id: !int "{provide_post_id:d}"
+        $ext:
+          function: tavern_multiple_config_file_in_global_setup.test_utilities.helpers:validate_response_utility
+
+---
+test_name: Check whether response obtained is saved and reused.
+
+marks:
+  - usefixtures:
+      - provide_post_id
+
+stages:
+  - name: Provide the post_id by using pytest fixtures available in conftest.py file
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/{provide_post_id}"
+      method: GET
+    response:
+      status_code: 200
+      save:
+        #id: !int "{provide_post_id:d}"
+        $ext:
+          function: tavern_multiple_config_file_in_global_setup.test_utilities.helpers:print_resp
+
+  - name: Reuse the response body as part of previous step
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/{provide_post_id}"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: !int "{requested_resp.id:d}"

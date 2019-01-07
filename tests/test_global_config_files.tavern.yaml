@@ -1,4 +1,4 @@
-test_name: Test type1 of reusing requests or any other parts in yaml fragments
+test_name: Test type1_questions of reusing requests or any other parts in yaml fragments
 
 # to set up global config files ,have to mention the config.yaml/common.yaml in pytest.ini file.
 #this would automatically refer and provide the variables to path
@@ -96,3 +96,24 @@ stages:
       body:
         id: 2
 ---
+test_name: Verify the external function behavior if save section is used before body section --> this is not possible refer test steps
+
+stages:
+  - name: Hit /posts API and return a response with dict and parse a post_id and retrieve single posts
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/2"
+      method: GET
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: tavern_multiple_config_file_in_global_setup.test_utilities.helpers:retrieve_user_details_form_of_dict1 #External function with set of arguments passed and return - {fetched_post_resp : {}}
+
+  - name: GET /posts api and verify the behavior after the delay_after keyword stage/test executed.
+    request:
+      url: "{server_url:s}{posts_api_endpoint:s}/{fetched_post_resp1}"
+      method: GET
+    response:
+      status_code: 200
+      body:
+        id: !int "{fetched_post_resp1:d}"

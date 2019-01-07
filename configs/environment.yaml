@@ -5,3 +5,13 @@ variables:
     server_url: https://jsonplaceholder.typicode.com
     posts_api_endpoint: '/posts'
 
+    usersInfo:
+        - type2_diabetes:
+              username: 'JaneDoe-EMAUser'
+              user_model_name: 'JaneDoeEMAUserModel'
+              session_id: 'JaneDoeEMAUserSession'
+
+        - type1_diabetes:
+              username: 'JaneDoe-EMAUser'
+              user_model_name: 'JaneDoeEMAUserModel'
+              session_id: 'JaneDoeEMAUserSession'

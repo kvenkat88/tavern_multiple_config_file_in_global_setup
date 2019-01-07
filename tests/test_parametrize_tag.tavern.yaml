@@ -41,6 +41,46 @@ stages:
       status_code: 200
       body:
         id: !int "{post_id:d}"
+---
+# If you need to parametrize multiple keys but don’t want there to be a new test created for every possible combination,
+# pass a list to key instead. Each item in val must then also be a list that is the same length as the key variable.
+
+#test_name: Parametrize multiple keys but don’t want there to be a new test created for every possible combination works effectively with post_id--
+
+#marks:
+ # - parametrize:
+  #    key:
+  #      - fruit
+  #      - edible
+  #    vals:
+  #      - [rotten, apple]
+  #      - [fresh, orange]
+  #      - [unripe, pear]
+ # - parametrize:
+  #    key: price
+  #    vals:
+   #     - expensive
+  #      - cheap
+
+#stages:
+ # - name: Create a new fruit entry
+  #  request:
+  #    url: "{host}/fruit"
+   #   method: POST
+  #    json:
+  #      fruit_type: "{price} {edible} {fruit}"
+  #  response:
+  #    status_code: 201
+
+#This will result in 6 tests:
+
+#expensive rotten apple
+#expensive fresh orange
+#expensive unripe pear
+#cheap rotten apple
+#cheap fresh orange
+#cheap unripe pear
+
 
 # Output:::
   #tests/test_parametrize_tag.tavern.yaml::Make sure tavern marks with one parametrize works effectively with post_id--[1] PASSED [ 16%]
