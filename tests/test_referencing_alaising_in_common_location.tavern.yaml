@@ -3,9 +3,6 @@
 ---
 test_name: Invoke the test with referenced stage
 
-includes: #there is bug in tavern and rsised a bug in tavern Github().Unable to put this file in pytest.ini global config setup
-  - !include ../reusable_components/common.yaml
-
 stages:
   - type: ref
     id: retrieve_post_info
