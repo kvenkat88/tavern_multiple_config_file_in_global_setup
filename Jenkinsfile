@@ -1,10 +1,18 @@
 pipeline {
   agent any
   stages {
-    stage('test') {
+    stage("Code Pull") {
+       when {
+                branch 'master'
+                }
       steps {
-        echo 'Hello'
+        checkout scm
       }
     }
+	        stage("Tavern Tests"){
+            steps {
+                sh 'pytest -v ./tests'
+            }
+        }
   }
 }
